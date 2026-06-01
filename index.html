@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="Registro personal de presion, temperatura y oxigenacion."
+    />
+    <title>Registro de salud</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="app-header">
+      <div>
+        <p class="eyebrow">Seguimiento personal</p>
+        <h1>Registro de salud</h1>
+      </div>
+      <div class="header-actions">
+        <button class="icon-button" id="exportCsvBtn" type="button" title="Exportar CSV" aria-label="Exportar CSV">
+          CSV
+        </button>
+        <button class="icon-button" id="exportJsonBtn" type="button" title="Exportar JSON" aria-label="Exportar JSON">
+          JSON
+        </button>
+        <label class="icon-button file-button" title="Importar respaldo" aria-label="Importar respaldo">
+          <input id="importFile" type="file" accept=".json,.csv,text/csv,application/json" />
+          Importar
+        </label>
+      </div>
+    </header>
+
+    <main class="app-shell">
+      <section class="entry-section" aria-labelledby="entryTitle">
+        <div class="section-heading">
+          <h2 id="entryTitle">Nuevo registro</h2>
+          <p id="formMode">Completa las mediciones del momento.</p>
+        </div>
+
+        <form id="healthForm" class="health-form">
+          <input id="recordId" type="hidden" />
+          <div class="field">
+            <label for="recordDate">Fecha y hora</label>
+            <input id="recordDate" name="recordDate" type="datetime-local" required />
+          </div>
+          <div class="field-group">
+            <div class="field">
+              <label for="systolic">Sistolica</label>
+              <input id="systolic" name="systolic" type="number" inputmode="numeric" min="40" max="260" required />
+            </div>
+            <div class="field">
+              <label for="diastolic">Diastolica</label>
+              <input id="diastolic" name="diastolic" type="number" inputmode="numeric" min="30" max="180" required />
+            </div>
+          </div>
+          <div class="field-group">
+            <div class="field">
+              <label for="temperature">Temperatura C</label>
+              <input id="temperature" name="temperature" type="number" inputmode="decimal" min="30" max="45" step="0.1" required />
+            </div>
+            <div class="field">
+              <label for="oxygen">Oxigenacion %</label>
+              <input id="oxygen" name="oxygen" type="number" inputmode="numeric" min="50" max="100" required />
+            </div>
+          </div>
+          <div class="field">
+            <label for="notes">Notas</label>
+            <textarea id="notes" name="notes" rows="3" placeholder="Opcional"></textarea>
+          </div>
+          <div class="form-actions">
+            <button class="primary-button" type="submit">Guardar</button>
+            <button class="ghost-button" id="cancelEditBtn" type="button" hidden>Cancelar</button>
+          </div>
+        </form>
+      </section>
+
+      <section class="summary-section" aria-label="Resumen">
+        <article class="metric-tile">
+          <span>Ultima presion</span>
+          <strong id="latestPressure">Sin datos</strong>
+        </article>
+        <article class="metric-tile">
+          <span>Temperatura</span>
+          <strong id="latestTemperature">Sin datos</strong>
+        </article>
+        <article class="metric-tile">
+          <span>Oxigenacion</span>
+          <strong id="latestOxygen">Sin datos</strong>
+        </article>
+        <article class="metric-tile">
+          <span>Registros</span>
+          <strong id="recordCount">0</strong>
+        </article>
+      </section>
+
+      <section class="chart-section" aria-labelledby="chartsTitle">
+        <div class="section-heading">
+          <h2 id="chartsTitle">Tendencias</h2>
+          <div class="segmented-control" role="group" aria-label="Rango del grafico">
+            <button type="button" class="segment is-active" data-range="30">30 dias</button>
+            <button type="button" class="segment" data-range="90">90 dias</button>
+            <button type="button" class="segment" data-range="all">Todo</button>
+          </div>
+        </div>
+        <div class="chart-grid">
+          <div class="chart-panel">
+            <h3>Presion arterial</h3>
+            <div id="pressureChart" class="chart-canvas" role="img" aria-label="Grafico de presion arterial"></div>
+          </div>
+          <div class="chart-panel">
+            <h3>Temperatura y oxigenacion</h3>
+            <div id="vitalsChart" class="chart-canvas" role="img" aria-label="Grafico de temperatura y oxigenacion"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="records-section" aria-labelledby="recordsTitle">
+        <div class="section-heading">
+          <h2 id="recordsTitle">Historial</h2>
+          <div class="search-wrap">
+            <label class="sr-only" for="searchInput">Buscar</label>
+            <input id="searchInput" type="search" placeholder="Buscar notas o fecha" />
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Fecha</th>
+                <th>Presion</th>
+                <th>Temp.</th>
+                <th>Oxig.</th>
+                <th>Estado</th>
+                <th class="actions-cell">Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="recordsBody"></tbody>
+          </table>
+        </div>
+        <p id="emptyState" class="empty-state">Todavia no hay registros.</p>
+      </section>
+    </main>
+
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+    <script src="app.js" defer></script>
+  </body>
+</html>
