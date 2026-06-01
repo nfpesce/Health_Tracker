@@ -8,8 +8,9 @@ en GitHub Pages.
 
 - Guarda los datos en el navegador con `localStorage`.
 - Permite crear, editar y borrar registros.
-- Acepta presion y temperatura con un decimal, por ejemplo `12.8`,
-  `9.3` o `37.5`.
+- Acepta presion y temperatura con punto o coma decimal, por ejemplo `12.8`,
+  `12,8`, `9.3`, `9,3`, `37.5` o `37,5`.
+- Normaliza los valores decimales a un formato unico con punto y un decimal.
 - Muestra resumen del ultimo registro.
 - Grafica tendencias de presion, temperatura y oxigenacion.
 - Exporta respaldos en `CSV` y `JSON`.

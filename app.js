@@ -27,6 +27,7 @@ let chartRange = "30";
 init();
 
 function init() {
+  const decimalInputs = [systolicInput, diastolicInput, temperatureInput];
   recordDateInput.value = toInputDateTime(new Date());
   form.addEventListener("submit", handleSubmit);
   cancelEditBtn.addEventListener("click", resetForm);
@@ -35,6 +36,9 @@ function init() {
     recordDateInput.focus();
   });
   searchInput.addEventListener("input", render);
+  decimalInputs.forEach((input) => {
+    input.addEventListener("blur", () => normalizeDecimalInput(input));
+  });
   document.querySelector("#exportCsvBtn").addEventListener("click", exportCsv);
   document.querySelector("#exportJsonBtn").addEventListener("click", exportJson);
   document.querySelectorAll("[data-range]").forEach((button) => {
@@ -206,9 +210,9 @@ function renderTable() {
 function editRecord(record) {
   recordIdInput.value = record.id;
   recordDateInput.value = toInputDateTime(new Date(record.date));
-  systolicInput.value = record.systolic;
-  diastolicInput.value = record.diastolic;
-  temperatureInput.value = record.temperature;
+  systolicInput.value = formatDecimal(record.systolic);
+  diastolicInput.value = formatDecimal(record.diastolic);
+  temperatureInput.value = formatDecimal(record.temperature);
   oxygenInput.value = record.oxygen;
   notesInput.value = record.notes || "";
   cancelEditBtn.hidden = false;
@@ -370,12 +374,19 @@ function parseDecimal(value) {
   return Number(String(value).trim().replace(",", "."));
 }
 
+function normalizeDecimalInput(input) {
+  const parsed = parseDecimal(input.value);
+  if (Number.isFinite(parsed)) {
+    input.value = formatDecimal(parsed);
+  }
+}
+
 function roundOne(value) {
   return Math.round(Number(value) * 10) / 10;
 }
 
 function formatDecimal(value) {
-  return Number(value).toLocaleString("es", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+  return Number(value).toFixed(1);
 }
 
 function formatExportDecimal(value) {
