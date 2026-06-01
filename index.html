@@ -17,16 +17,12 @@
         <h1>Registro de salud</h1>
       </div>
       <div class="header-actions">
-        <button class="icon-button" id="exportCsvBtn" type="button" title="Exportar CSV" aria-label="Exportar CSV">
-          CSV
+        <button class="icon-button" id="exportCsvBtn" type="button">
+          Exportar CSV
         </button>
-        <button class="icon-button" id="exportJsonBtn" type="button" title="Exportar JSON" aria-label="Exportar JSON">
-          JSON
+        <button class="icon-button" id="exportJsonBtn" type="button">
+          Exportar JSON
         </button>
-        <label class="icon-button file-button" title="Importar respaldo" aria-label="Importar respaldo">
-          <input id="importFile" type="file" accept=".json,.csv,text/csv,application/json" />
-          Importar
-        </label>
       </div>
     </header>
 
@@ -40,8 +36,11 @@
         <form id="healthForm" class="health-form">
           <input id="recordId" type="hidden" />
           <div class="field">
-            <label for="recordDate">Fecha y hora</label>
-            <input id="recordDate" name="recordDate" type="datetime-local" required />
+            <label for="recordDate">Fecha y hora de la medicion</label>
+            <div class="date-row">
+              <input id="recordDate" name="recordDate" type="datetime-local" required />
+              <button class="ghost-button now-button" id="nowBtn" type="button">Ahora</button>
+            </div>
           </div>
           <div class="field-group">
             <div class="field">
@@ -137,6 +136,7 @@
             <tbody id="recordsBody"></tbody>
           </table>
         </div>
+        <div id="recordCards" class="mobile-records"></div>
         <p id="emptyState" class="empty-state">Todavia no hay registros.</p>
       </section>
     </main>

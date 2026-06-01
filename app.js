@@ -13,11 +13,12 @@ const temperatureInput = document.querySelector("#temperature");
 const oxygenInput = document.querySelector("#oxygen");
 const notesInput = document.querySelector("#notes");
 const cancelEditBtn = document.querySelector("#cancelEditBtn");
+const nowBtn = document.querySelector("#nowBtn");
 const formMode = document.querySelector("#formMode");
 const recordsBody = document.querySelector("#recordsBody");
+const recordCards = document.querySelector("#recordCards");
 const emptyState = document.querySelector("#emptyState");
 const searchInput = document.querySelector("#searchInput");
-const importFile = document.querySelector("#importFile");
 const toast = document.querySelector("#toast");
 
 let records = loadRecords();
@@ -29,8 +30,11 @@ function init() {
   recordDateInput.value = toInputDateTime(new Date());
   form.addEventListener("submit", handleSubmit);
   cancelEditBtn.addEventListener("click", resetForm);
+  nowBtn.addEventListener("click", () => {
+    recordDateInput.value = toInputDateTime(new Date());
+    recordDateInput.focus();
+  });
   searchInput.addEventListener("input", render);
-  importFile.addEventListener("change", handleImport);
   document.querySelector("#exportCsvBtn").addEventListener("click", exportCsv);
   document.querySelector("#exportJsonBtn").addEventListener("click", exportJson);
   document.querySelectorAll("[data-range]").forEach((button) => {
@@ -130,11 +134,12 @@ function renderTable() {
   });
 
   recordsBody.innerHTML = "";
+  recordCards.innerHTML = "";
   emptyState.hidden = visibleRecords.length > 0;
 
   visibleRecords.forEach((record) => {
-    const tr = document.createElement("tr");
     const status = getStatus(record);
+    const tr = document.createElement("tr");
     tr.innerHTML = `
       <td>
         ${escapeHtml(DATE_FORMAT.format(new Date(record.date)))}
@@ -152,9 +157,31 @@ function renderTable() {
       </td>
     `;
     recordsBody.appendChild(tr);
+
+    const card = document.createElement("article");
+    card.className = "record-card";
+    card.innerHTML = `
+      <div class="record-card-header">
+        <div>
+          <div class="record-card-date">${escapeHtml(DATE_FORMAT.format(new Date(record.date)))}</div>
+          ${record.notes ? `<span class="notes">${escapeHtml(record.notes)}</span>` : ""}
+        </div>
+        <span class="status ${status.level}">${status.label}</span>
+      </div>
+      <div class="record-card-grid">
+        <div><span>Presion</span><strong>${record.systolic}/${record.diastolic}</strong></div>
+        <div><span>Temp.</span><strong>${formatNumber(record.temperature)} C</strong></div>
+        <div><span>Oxig.</span><strong>${record.oxygen}%</strong></div>
+      </div>
+      <div class="record-card-actions">
+        <button type="button" data-action="edit" data-id="${record.id}">Editar</button>
+        <button type="button" data-action="delete" data-id="${record.id}">Borrar</button>
+      </div>
+    `;
+    recordCards.appendChild(card);
   });
 
-  recordsBody.querySelectorAll("button").forEach((button) => {
+  document.querySelectorAll("[data-action]").forEach((button) => {
     button.addEventListener("click", () => {
       const record = records.find((item) => item.id === button.dataset.id);
       if (!record) return;
@@ -299,93 +326,6 @@ function exportCsv() {
   ]);
   const csv = [headers, ...rows].map((row) => row.map(csvEscape).join(",")).join("\n");
   downloadFile(`registro-salud-${todayStamp()}.csv`, "text/csv", csv);
-}
-
-async function handleImport(event) {
-  const file = event.target.files[0];
-  if (!file) return;
-  const text = await file.text();
-  const imported = file.name.toLowerCase().endsWith(".csv") ? parseCsv(text) : parseJson(text);
-  if (!imported.length) {
-    showToast("No se encontraron registros validos.");
-    importFile.value = "";
-    return;
-  }
-
-  const byId = new Map(records.map((record) => [record.id, record]));
-  imported.forEach((record) => byId.set(record.id, record));
-  records = sortRecords([...byId.values()]);
-  saveRecords();
-  render();
-  importFile.value = "";
-  showToast(`Importados ${imported.length} registros.`);
-}
-
-function parseJson(text) {
-  try {
-    const parsed = JSON.parse(text);
-    return normalizeImportedRecords(Array.isArray(parsed) ? parsed : []);
-  } catch {
-    return [];
-  }
-}
-
-function parseCsv(text) {
-  const lines = text.trim().split(/\r?\n/);
-  if (lines.length < 2) return [];
-  const rows = lines.slice(1).map(parseCsvLine);
-  return normalizeImportedRecords(
-    rows.map(([date, systolic, diastolic, temperature, oxygen, notes]) => ({
-      date,
-      systolic,
-      diastolic,
-      temperature,
-      oxygen,
-      notes,
-    })),
-  );
-}
-
-function parseCsvLine(line) {
-  const values = [];
-  let current = "";
-  let quoted = false;
-
-  for (let index = 0; index < line.length; index += 1) {
-    const char = line[index];
-    const next = line[index + 1];
-    if (char === '"' && quoted && next === '"') {
-      current += '"';
-      index += 1;
-    } else if (char === '"') {
-      quoted = !quoted;
-    } else if (char === "," && !quoted) {
-      values.push(current);
-      current = "";
-    } else {
-      current += char;
-    }
-  }
-
-  values.push(current);
-  return values;
-}
-
-function normalizeImportedRecords(items) {
-  return items
-    .map((item) => {
-      const parsedDate = new Date(item.date || item.fecha);
-      return {
-        id: item.id || crypto.randomUUID(),
-        date: Number.isFinite(parsedDate.getTime()) ? parsedDate.toISOString() : "",
-        systolic: Number(item.systolic || item.sistolica),
-        diastolic: Number(item.diastolic || item.diastolica),
-        temperature: Number(item.temperature || item.temperatura),
-        oxygen: Number(item.oxygen || item.oxigenacion),
-        notes: String(item.notes || item.notas || "").trim(),
-      };
-    })
-    .filter(isValidRecord);
 }
 
 function downloadFile(filename, type, content) {

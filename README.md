@@ -11,7 +11,6 @@ en GitHub Pages.
 - Muestra resumen del ultimo registro.
 - Grafica tendencias de presion, temperatura y oxigenacion.
 - Exporta respaldos en `CSV` y `JSON`.
-- Importa respaldos en `CSV` o `JSON`.
 
 ## Privacidad y respaldo
 
