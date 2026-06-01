@@ -8,6 +8,8 @@ en GitHub Pages.
 
 - Guarda los datos en el navegador con `localStorage`.
 - Permite crear, editar y borrar registros.
+- Acepta presion y temperatura con un decimal, por ejemplo `12.8`,
+  `9.3` o `37.5`.
 - Muestra resumen del ultimo registro.
 - Grafica tendencias de presion, temperatura y oxigenacion.
 - Exporta respaldos en `CSV` y `JSON`.

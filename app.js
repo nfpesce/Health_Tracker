@@ -53,9 +53,9 @@ function handleSubmit(event) {
   const record = {
     id: recordIdInput.value || crypto.randomUUID(),
     date: new Date(recordDateInput.value).toISOString(),
-    systolic: Number(systolicInput.value),
-    diastolic: Number(diastolicInput.value),
-    temperature: Number(temperatureInput.value),
+    systolic: parseDecimal(systolicInput.value),
+    diastolic: parseDecimal(diastolicInput.value),
+    temperature: parseDecimal(temperatureInput.value),
     oxygen: Number(oxygenInput.value),
     notes: notesInput.value.trim(),
   };
@@ -75,10 +75,10 @@ function handleSubmit(event) {
 function isValidRecord(record) {
   return (
     Number.isFinite(new Date(record.date).getTime()) &&
-    record.systolic >= 40 &&
-    record.systolic <= 260 &&
-    record.diastolic >= 30 &&
-    record.diastolic <= 180 &&
+    record.systolic >= 4 &&
+    record.systolic <= 26 &&
+    record.diastolic >= 3 &&
+    record.diastolic <= 18 &&
     record.temperature >= 30 &&
     record.temperature <= 45 &&
     record.oxygen >= 50 &&
@@ -89,10 +89,22 @@ function isValidRecord(record) {
 function loadRecords() {
   try {
     const stored = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
-    return Array.isArray(stored) ? stored.filter(isValidRecord) : [];
+    return Array.isArray(stored) ? stored.map(normalizeRecord).filter(isValidRecord) : [];
   } catch {
     return [];
   }
+}
+
+function normalizeRecord(record) {
+  const systolic = Number(record.systolic);
+  const diastolic = Number(record.diastolic);
+  return {
+    ...record,
+    systolic: systolic >= 40 ? roundOne(systolic / 10) : roundOne(systolic),
+    diastolic: diastolic >= 30 ? roundOne(diastolic / 10) : roundOne(diastolic),
+    temperature: Number(record.temperature),
+    oxygen: Number(record.oxygen),
+  };
 }
 
 function saveRecords() {
@@ -121,8 +133,8 @@ function render() {
 function renderSummary() {
   const latest = records[0];
   document.querySelector("#recordCount").textContent = records.length.toString();
-  document.querySelector("#latestPressure").textContent = latest ? `${latest.systolic}/${latest.diastolic}` : "Sin datos";
-  document.querySelector("#latestTemperature").textContent = latest ? `${formatNumber(latest.temperature)} C` : "Sin datos";
+  document.querySelector("#latestPressure").textContent = latest ? formatPressure(latest) : "Sin datos";
+  document.querySelector("#latestTemperature").textContent = latest ? `${formatDecimal(latest.temperature)} C` : "Sin datos";
   document.querySelector("#latestOxygen").textContent = latest ? `${latest.oxygen}%` : "Sin datos";
 }
 
@@ -145,8 +157,8 @@ function renderTable() {
         ${escapeHtml(DATE_FORMAT.format(new Date(record.date)))}
         ${record.notes ? `<span class="notes">${escapeHtml(record.notes)}</span>` : ""}
       </td>
-      <td>${record.systolic}/${record.diastolic} mmHg</td>
-      <td>${formatNumber(record.temperature)} C</td>
+      <td>${formatPressure(record)}</td>
+      <td>${formatDecimal(record.temperature)} C</td>
       <td>${record.oxygen}%</td>
       <td><span class="status ${status.level}">${status.label}</span></td>
       <td class="actions-cell">
@@ -169,8 +181,8 @@ function renderTable() {
         <span class="status ${status.level}">${status.label}</span>
       </div>
       <div class="record-card-grid">
-        <div><span>Presion</span><strong>${record.systolic}/${record.diastolic}</strong></div>
-        <div><span>Temp.</span><strong>${formatNumber(record.temperature)} C</strong></div>
+        <div><span>Presion</span><strong>${formatPressure(record)}</strong></div>
+        <div><span>Temp.</span><strong>${formatDecimal(record.temperature)} C</strong></div>
         <div><span>Oxig.</span><strong>${record.oxygen}%</strong></div>
       </div>
       <div class="record-card-actions">
@@ -213,14 +225,14 @@ function deleteRecord(id) {
 }
 
 function getStatus(record) {
-  const hasAlert = record.oxygen < 92 || record.temperature >= 38 || record.systolic >= 180 || record.diastolic >= 120;
+  const hasAlert = record.oxygen < 92 || record.temperature >= 38 || record.systolic >= 18 || record.diastolic >= 12;
   const hasWatch =
     record.oxygen < 95 ||
     record.temperature >= 37.5 ||
-    record.systolic >= 140 ||
-    record.diastolic >= 90 ||
-    record.systolic < 90 ||
-    record.diastolic < 60;
+    record.systolic >= 14 ||
+    record.diastolic >= 9 ||
+    record.systolic < 9 ||
+    record.diastolic < 6;
 
   if (hasAlert) return { level: "alert", label: "Alerta" };
   if (hasWatch) return { level: "watch", label: "Revisar" };
@@ -230,8 +242,8 @@ function getStatus(record) {
 function renderCharts() {
   const ascending = getChartRecords();
   renderLineChart(document.querySelector("#pressureChart"), ascending, [
-    { key: "systolic", label: "Sistolica", color: "#0b7a75", min: 70, max: 190 },
-    { key: "diastolic", label: "Diastolica", color: "#b65f00", min: 40, max: 130 },
+    { key: "systolic", label: "Sistolica", color: "#0b7a75", min: 7, max: 19 },
+    { key: "diastolic", label: "Diastolica", color: "#b65f00", min: 4, max: 13 },
   ]);
   renderLineChart(document.querySelector("#vitalsChart"), ascending, [
     { key: "temperature", label: "Temperatura", color: "#b3261e", min: 34, max: 41 },
@@ -286,7 +298,7 @@ function renderLineChart(container, data, series) {
         .map(
           (record, index) =>
             `<circle cx="${xFor(index)}" cy="${yFor(record[item.key])}" r="3" fill="${item.color}">
-              <title>${item.label}: ${record[item.key]} - ${DATE_FORMAT.format(new Date(record.date))}</title>
+              <title>${item.label}: ${formatDecimal(record[item.key])} - ${DATE_FORMAT.format(new Date(record.date))}</title>
             </circle>`,
         )
         .join("");
@@ -318,9 +330,9 @@ function exportCsv() {
   const headers = ["fecha", "sistolica", "diastolica", "temperatura", "oxigenacion", "notas"];
   const rows = sortRecords(records).map((record) => [
     record.date,
-    record.systolic,
-    record.diastolic,
-    record.temperature,
+    formatExportDecimal(record.systolic),
+    formatExportDecimal(record.diastolic),
+    formatExportDecimal(record.temperature),
     record.oxygen,
     record.notes || "",
   ]);
@@ -354,8 +366,24 @@ function todayStamp() {
   return new Date().toISOString().slice(0, 10);
 }
 
-function formatNumber(value) {
-  return Number(value).toLocaleString("es", { maximumFractionDigits: 1 });
+function parseDecimal(value) {
+  return Number(String(value).trim().replace(",", "."));
+}
+
+function roundOne(value) {
+  return Math.round(Number(value) * 10) / 10;
+}
+
+function formatDecimal(value) {
+  return Number(value).toLocaleString("es", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+}
+
+function formatExportDecimal(value) {
+  return Number(value).toFixed(1);
+}
+
+function formatPressure(record) {
+  return `${formatDecimal(record.systolic)}/${formatDecimal(record.diastolic)}`;
 }
 
 function escapeHtml(value) {
