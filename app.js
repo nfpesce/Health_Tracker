@@ -246,12 +246,14 @@ function getStatus(record) {
 function renderCharts() {
   const ascending = getChartRecords();
   renderLineChart(document.querySelector("#pressureChart"), ascending, [
-    { key: "systolic", label: "Sistolica", color: "#0b7a75", min: 7, max: 19 },
-    { key: "diastolic", label: "Diastolica", color: "#b65f00", min: 4, max: 13 },
+    { key: "systolic", label: "Sistolica", color: "#0b7a75", min: 8, max: 18 },
+    { key: "diastolic", label: "Diastolica", color: "#b65f00", min: 8, max: 18 },
   ]);
-  renderLineChart(document.querySelector("#vitalsChart"), ascending, [
-    { key: "temperature", label: "Temperatura", color: "#b3261e", min: 34, max: 41 },
-    { key: "oxygen", label: "Oxigenacion", color: "#26734d", min: 85, max: 100 },
+  renderLineChart(document.querySelector("#temperatureChart"), ascending, [
+    { key: "temperature", label: "Temperatura", color: "#b3261e", min: 34, max: 40 },
+  ]);
+  renderLineChart(document.querySelector("#oxygenChart"), ascending, [
+    { key: "oxygen", label: "Oxigenacion", color: "#26734d", min: 95, max: 100 },
   ]);
 }
 
@@ -277,11 +279,7 @@ function renderLineChart(container, data, series) {
   const pad = { top: 16, right: 20, bottom: 28, left: 42 };
   const plotWidth = width - pad.left - pad.right;
   const plotHeight = height - pad.top - pad.bottom;
-  const allValues = series.flatMap((item) => data.map((record) => record[item.key]));
-  const configuredMin = Math.min(...series.map((item) => item.min));
-  const configuredMax = Math.max(...series.map((item) => item.max));
-  const min = Math.min(configuredMin, Math.floor(Math.min(...allValues) - 4));
-  const max = Math.max(configuredMax, Math.ceil(Math.max(...allValues) + 4));
+  const { min, max } = getAxisRange(data, series);
   const xStep = data.length > 1 ? plotWidth / (data.length - 1) : 0;
 
   const yFor = (value) => pad.top + ((max - value) / (max - min)) * plotHeight;
@@ -289,7 +287,7 @@ function renderLineChart(container, data, series) {
   const grid = [0, 0.25, 0.5, 0.75, 1]
     .map((ratio) => {
       const y = pad.top + ratio * plotHeight;
-      const label = Math.round(max - ratio * (max - min));
+      const label = formatAxisLabel(max - ratio * (max - min));
       return `<line x1="${pad.left}" y1="${y}" x2="${width - pad.right}" y2="${y}" stroke="#d8e2de" />
         <text x="8" y="${y + 4}" fill="#65736d" font-size="11">${label}</text>`;
     })
@@ -324,6 +322,25 @@ function renderLineChart(container, data, series) {
     </svg>
     <div class="legend">${legend}</div>
   `;
+}
+
+function getAxisRange(data, series) {
+  const allValues = series.flatMap((item) => data.map((record) => record[item.key])).filter(Number.isFinite);
+  const configuredMin = Math.min(...series.map((item) => item.min));
+  const configuredMax = Math.max(...series.map((item) => item.max));
+  const valueMin = Math.min(...allValues);
+  const valueMax = Math.max(...allValues);
+  const span = configuredMax - configuredMin || 1;
+  const padding = span * 0.06;
+
+  return {
+    min: valueMin < configuredMin ? Math.floor((valueMin - padding) * 10) / 10 : configuredMin,
+    max: valueMax > configuredMax ? Math.ceil((valueMax + padding) * 10) / 10 : configuredMax,
+  };
+}
+
+function formatAxisLabel(value) {
+  return Number.isInteger(value) ? value.toString() : value.toFixed(1);
 }
 
 function exportJson() {
