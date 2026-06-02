@@ -22,7 +22,7 @@ const searchInput = document.querySelector("#searchInput");
 const toast = document.querySelector("#toast");
 
 let records = loadRecords();
-let chartRange = "30";
+let chartRange = "all";
 
 init();
 
@@ -100,14 +100,14 @@ function loadRecords() {
 }
 
 function normalizeRecord(record) {
-  const systolic = Number(record.systolic);
-  const diastolic = Number(record.diastolic);
+  const systolic = Number(record.systolic ?? record.sistolica);
+  const diastolic = Number(record.diastolic ?? record.diastolica);
   return {
     ...record,
     systolic: systolic >= 40 ? roundOne(systolic / 10) : roundOne(systolic),
     diastolic: diastolic >= 30 ? roundOne(diastolic / 10) : roundOne(diastolic),
-    temperature: Number(record.temperature),
-    oxygen: Number(record.oxygen),
+    temperature: Number(record.temperature ?? record.temperatura),
+    oxygen: Number(record.oxygen ?? record.oxigenacion),
   };
 }
 
@@ -269,7 +269,11 @@ function getChartRecords() {
 }
 
 function renderLineChart(container, data, series) {
-  if (data.length === 0) {
+  const drawableSeries = series
+    .map((item) => ({ ...item, points: getSeriesPoints(data, item.key) }))
+    .filter((item) => item.points.length > 0);
+
+  if (drawableSeries.length === 0) {
     container.innerHTML = `<div class="empty-state">Sin datos para graficar.</div>`;
     return;
   }
@@ -279,7 +283,7 @@ function renderLineChart(container, data, series) {
   const pad = { top: 16, right: 20, bottom: 28, left: 42 };
   const plotWidth = width - pad.left - pad.right;
   const plotHeight = height - pad.top - pad.bottom;
-  const { min, max } = getAxisRange(data, series);
+  const { min, max } = getAxisRange(drawableSeries);
   const xStep = data.length > 1 ? plotWidth / (data.length - 1) : 0;
 
   const yFor = (value) => pad.top + ((max - value) / (max - min)) * plotHeight;
@@ -293,14 +297,14 @@ function renderLineChart(container, data, series) {
     })
     .join("");
 
-  const paths = series
+  const paths = drawableSeries
     .map((item) => {
-      const points = data.map((record, index) => `${xFor(index)},${yFor(record[item.key])}`).join(" ");
-      const dots = data
+      const points = item.points.map(({ index, value }) => `${xFor(index)},${yFor(value)}`).join(" ");
+      const dots = item.points
         .map(
-          (record, index) =>
-            `<circle cx="${xFor(index)}" cy="${yFor(record[item.key])}" r="3" fill="${item.color}">
-              <title>${item.label}: ${formatDecimal(record[item.key])} - ${DATE_FORMAT.format(new Date(record.date))}</title>
+          ({ index, record, value }) =>
+            `<circle cx="${xFor(index)}" cy="${yFor(value)}" r="3" fill="${item.color}">
+              <title>${item.label}: ${formatDecimal(value)} - ${DATE_FORMAT.format(new Date(record.date))}</title>
             </circle>`,
         )
         .join("");
@@ -310,7 +314,7 @@ function renderLineChart(container, data, series) {
 
   const firstDate = DATE_FORMAT.format(new Date(data[0].date));
   const lastDate = DATE_FORMAT.format(new Date(data[data.length - 1].date));
-  const legend = series.map((item) => `<span style="color:${item.color}">${item.label}</span>`).join("");
+  const legend = drawableSeries.map((item) => `<span style="color:${item.color}">${item.label}</span>`).join("");
 
   container.innerHTML = `
     <svg viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" aria-hidden="true">
@@ -324,8 +328,14 @@ function renderLineChart(container, data, series) {
   `;
 }
 
-function getAxisRange(data, series) {
-  const allValues = series.flatMap((item) => data.map((record) => record[item.key])).filter(Number.isFinite);
+function getSeriesPoints(data, key) {
+  return data
+    .map((record, index) => ({ record, index, value: Number(record[key]) }))
+    .filter((point) => Number.isFinite(point.value));
+}
+
+function getAxisRange(series) {
+  const allValues = series.flatMap((item) => item.points.map((point) => point.value));
   const configuredMin = Math.min(...series.map((item) => item.min));
   const configuredMax = Math.max(...series.map((item) => item.max));
   const valueMin = Math.min(...allValues);
