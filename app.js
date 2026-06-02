@@ -3,6 +3,8 @@ const DATE_FORMAT = new Intl.DateTimeFormat("es", {
   dateStyle: "medium",
   timeStyle: "short",
 });
+const CHART_AXIS_FONT =
+  "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif";
 
 const form = document.querySelector("#healthForm");
 const recordIdInput = document.querySelector("#recordId");
@@ -278,9 +280,9 @@ function renderLineChart(container, data, series) {
     return;
   }
 
-  const width = 640;
-  const height = 240;
-  const pad = { top: 16, right: 20, bottom: 28, left: 42 };
+  const width = 560;
+  const height = 250;
+  const pad = { top: 18, right: 22, bottom: 38, left: 52 };
   const plotWidth = width - pad.left - pad.right;
   const plotHeight = height - pad.top - pad.bottom;
   const { min, max } = getAxisRange(drawableSeries);
@@ -293,7 +295,7 @@ function renderLineChart(container, data, series) {
       const y = pad.top + ratio * plotHeight;
       const label = formatAxisLabel(max - ratio * (max - min));
       return `<line x1="${pad.left}" y1="${y}" x2="${width - pad.right}" y2="${y}" stroke="#d8e2de" />
-        <text x="8" y="${y + 4}" fill="#65736d" font-size="11">${label}</text>`;
+        <text x="10" y="${y + 5}" fill="#46524d" font-size="14" font-weight="700" font-family="${CHART_AXIS_FONT}">${label}</text>`;
     })
     .join("");
 
@@ -321,8 +323,8 @@ function renderLineChart(container, data, series) {
       ${grid}
       <line x1="${pad.left}" y1="${height - pad.bottom}" x2="${width - pad.right}" y2="${height - pad.bottom}" stroke="#9aa8a2" />
       ${paths}
-      <text x="${pad.left}" y="${height - 8}" fill="#65736d" font-size="11">${escapeHtml(firstDate)}</text>
-      <text x="${width - pad.right}" y="${height - 8}" text-anchor="end" fill="#65736d" font-size="11">${escapeHtml(lastDate)}</text>
+      <text x="${pad.left}" y="${height - 10}" fill="#46524d" font-size="13" font-weight="700" font-family="${CHART_AXIS_FONT}">${escapeHtml(firstDate)}</text>
+      <text x="${width - pad.right}" y="${height - 10}" text-anchor="end" fill="#46524d" font-size="13" font-weight="700" font-family="${CHART_AXIS_FONT}">${escapeHtml(lastDate)}</text>
     </svg>
     <div class="legend">${legend}</div>
   `;
