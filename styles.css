@@ -133,6 +133,7 @@ h3 {
 }
 
 .entry-section,
+.settings-section,
 .records-section,
 .chart-section,
 .metric-tile,
@@ -142,6 +143,11 @@ h3 {
   border-radius: 8px;
   background: var(--surface);
   box-shadow: var(--shadow);
+}
+
+.settings-section {
+  grid-column: 1 / -1;
+  padding: 18px;
 }
 
 .entry-section {
@@ -170,6 +176,48 @@ h3 {
   gap: 14px;
 }
 
+.metric-settings {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.checkbox-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: 10px;
+  min-height: 80px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-strong);
+  padding: 14px;
+  color: var(--text);
+}
+
+.checkbox-card input {
+  width: 18px;
+  height: 18px;
+  margin: 3px 0 0;
+  accent-color: var(--accent);
+}
+
+.checkbox-card strong,
+.checkbox-card small {
+  display: block;
+}
+
+.checkbox-card strong {
+  font-size: 0.98rem;
+}
+
+.checkbox-card small {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
 .field,
 .field-group {
   display: grid;
@@ -178,6 +226,10 @@ h3 {
 
 .field-group {
   grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.field-group:has(.field[hidden]) {
+  grid-template-columns: 1fr;
 }
 
 .date-row {
@@ -424,6 +476,11 @@ th {
   color: var(--danger);
 }
 
+.status.neutral {
+  background: var(--surface-strong);
+  color: var(--muted);
+}
+
 .notes {
   display: block;
   margin-top: 4px;
@@ -478,6 +535,10 @@ th {
   .entry-section {
     position: static;
     grid-row: auto;
+  }
+
+  .metric-settings {
+    grid-template-columns: 1fr;
   }
 
   .summary-section {

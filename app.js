@@ -1,4 +1,13 @@
 const STORAGE_KEY = "health-tracker-records-v1";
+const SETTINGS_KEY = "health-tracker-settings-v1";
+const METRIC_ORDER = ["pressure", "temperature", "oxygen"];
+const DEFAULT_SETTINGS = {
+  metrics: {
+    pressure: true,
+    temperature: true,
+    oxygen: true,
+  },
+};
 const DATE_FORMAT = new Intl.DateTimeFormat("es", {
   dateStyle: "medium",
   timeStyle: "short",
@@ -22,7 +31,9 @@ const recordCards = document.querySelector("#recordCards");
 const emptyState = document.querySelector("#emptyState");
 const searchInput = document.querySelector("#searchInput");
 const toast = document.querySelector("#toast");
+const metricToggles = Array.from(document.querySelectorAll("[data-metric-toggle]"));
 
+let settings = loadSettings();
 let records = loadRecords();
 let chartRange = "all";
 
@@ -31,6 +42,7 @@ init();
 function init() {
   const decimalInputs = [systolicInput, diastolicInput, temperatureInput];
   recordDateInput.value = toInputDateTime(new Date());
+  applyMetricSettings();
   form.addEventListener("submit", handleSubmit);
   cancelEditBtn.addEventListener("click", resetForm);
   nowBtn.addEventListener("click", () => {
@@ -40,6 +52,9 @@ function init() {
   searchInput.addEventListener("input", render);
   decimalInputs.forEach((input) => {
     input.addEventListener("blur", () => normalizeDecimalInput(input));
+  });
+  metricToggles.forEach((input) => {
+    input.addEventListener("change", () => handleMetricSettingChange(input));
   });
   document.querySelector("#exportCsvBtn").addEventListener("click", exportCsv);
   document.querySelector("#exportJsonBtn").addEventListener("click", exportJson);
@@ -54,15 +69,32 @@ function init() {
   render();
 }
 
+function handleMetricSettingChange(input) {
+  const nextMetrics = { ...settings.metrics, [input.dataset.metricToggle]: input.checked };
+
+  if (!hasActiveMetric(nextMetrics)) {
+    input.checked = true;
+    showToast("Selecciona al menos un dato.");
+    return;
+  }
+
+  settings = { metrics: nextMetrics };
+  saveSettings();
+  applyMetricSettings();
+  render();
+  showToast("Configuracion guardada.");
+}
+
 function handleSubmit(event) {
   event.preventDefault();
+  const existingRecord = records.find((item) => item.id === recordIdInput.value);
   const record = {
-    id: recordIdInput.value || crypto.randomUUID(),
+    id: recordIdInput.value || createId(),
     date: new Date(recordDateInput.value).toISOString(),
-    systolic: parseDecimal(systolicInput.value),
-    diastolic: parseDecimal(diastolicInput.value),
-    temperature: parseDecimal(temperatureInput.value),
-    oxygen: Number(oxygenInput.value),
+    systolic: isMetricActive("pressure") ? parseDecimal(systolicInput.value) : existingRecord?.systolic ?? null,
+    diastolic: isMetricActive("pressure") ? parseDecimal(diastolicInput.value) : existingRecord?.diastolic ?? null,
+    temperature: isMetricActive("temperature") ? parseDecimal(temperatureInput.value) : existingRecord?.temperature ?? null,
+    oxygen: isMetricActive("oxygen") ? Number(oxygenInput.value) : existingRecord?.oxygen ?? null,
     notes: notesInput.value.trim(),
   };
 
@@ -81,36 +113,64 @@ function handleSubmit(event) {
 function isValidRecord(record) {
   return (
     Number.isFinite(new Date(record.date).getTime()) &&
-    record.systolic >= 4 &&
-    record.systolic <= 26 &&
-    record.diastolic >= 3 &&
-    record.diastolic <= 18 &&
-    record.temperature >= 30 &&
-    record.temperature <= 45 &&
-    record.oxygen >= 50 &&
-    record.oxygen <= 100
+    (!isMetricActive("pressure") || isPressureValid(record)) &&
+    (!isMetricActive("temperature") || isTemperatureValid(record)) &&
+    (!isMetricActive("oxygen") || isOxygenValid(record))
   );
+}
+
+function isStoredRecordValid(record) {
+  return (
+    Number.isFinite(new Date(record.date).getTime()) &&
+    (isPressureValid(record) || isTemperatureValid(record) || isOxygenValid(record))
+  );
+}
+
+function loadSettings() {
+  try {
+    const stored = JSON.parse(localStorage.getItem(SETTINGS_KEY) || "{}");
+    const metrics = { ...DEFAULT_SETTINGS.metrics, ...(stored.metrics || {}) };
+    return { metrics: hasActiveMetric(metrics) ? metrics : { ...DEFAULT_SETTINGS.metrics } };
+  } catch {
+    return { ...DEFAULT_SETTINGS, metrics: { ...DEFAULT_SETTINGS.metrics } };
+  }
+}
+
+function saveSettings() {
+  localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
 }
 
 function loadRecords() {
   try {
     const stored = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
-    return Array.isArray(stored) ? stored.map(normalizeRecord).filter(isValidRecord) : [];
+    return Array.isArray(stored) ? stored.map(normalizeRecord).filter(isStoredRecordValid) : [];
   } catch {
     return [];
   }
 }
 
 function normalizeRecord(record) {
-  const systolic = Number(record.systolic ?? record.sistolica);
-  const diastolic = Number(record.diastolic ?? record.diastolica);
   return {
     ...record,
-    systolic: systolic >= 40 ? roundOne(systolic / 10) : roundOne(systolic),
-    diastolic: diastolic >= 30 ? roundOne(diastolic / 10) : roundOne(diastolic),
-    temperature: Number(record.temperature ?? record.temperatura),
-    oxygen: Number(record.oxygen ?? record.oxigenacion),
+    id: record.id || createId(),
+    systolic: normalizePressureValue(record.systolic ?? record.sistolica),
+    diastolic: normalizePressureValue(record.diastolic ?? record.diastolica),
+    temperature: normalizeOptionalNumber(record.temperature ?? record.temperatura),
+    oxygen: normalizeOptionalNumber(record.oxygen ?? record.oxigenacion),
+    notes: String(record.notes || ""),
   };
+}
+
+function normalizePressureValue(value) {
+  const number = normalizeOptionalNumber(value);
+  if (!Number.isFinite(number)) return null;
+  return number >= 30 ? roundOne(number / 10) : roundOne(number);
+}
+
+function normalizeOptionalNumber(value) {
+  if (value === null || value === undefined || value === "") return null;
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
 }
 
 function saveRecords() {
@@ -126,7 +186,8 @@ function resetForm() {
   recordIdInput.value = "";
   recordDateInput.value = toInputDateTime(new Date());
   cancelEditBtn.hidden = true;
-  formMode.textContent = "Completa las mediciones del momento.";
+  formMode.textContent = "Completa las mediciones seleccionadas.";
+  applyMetricSettings();
 }
 
 function render() {
@@ -137,11 +198,16 @@ function render() {
 }
 
 function renderSummary() {
-  const latest = records[0];
+  const latestPressure = records.find(isPressureValid);
+  const latestTemperature = records.find(isTemperatureValid);
+  const latestOxygen = records.find(isOxygenValid);
+
   document.querySelector("#recordCount").textContent = records.length.toString();
-  document.querySelector("#latestPressure").textContent = latest ? formatPressure(latest) : "Sin datos";
-  document.querySelector("#latestTemperature").textContent = latest ? `${formatDecimal(latest.temperature)} C` : "Sin datos";
-  document.querySelector("#latestOxygen").textContent = latest ? `${latest.oxygen}%` : "Sin datos";
+  document.querySelector("#latestPressure").textContent = latestPressure ? formatPressure(latestPressure) : "Sin datos";
+  document.querySelector("#latestTemperature").textContent = latestTemperature
+    ? `${formatDecimal(latestTemperature.temperature)} C`
+    : "Sin datos";
+  document.querySelector("#latestOxygen").textContent = latestOxygen ? `${latestOxygen.oxygen}%` : "Sin datos";
 }
 
 function renderTable() {
@@ -163,14 +229,12 @@ function renderTable() {
         ${escapeHtml(DATE_FORMAT.format(new Date(record.date)))}
         ${record.notes ? `<span class="notes">${escapeHtml(record.notes)}</span>` : ""}
       </td>
-      <td>${formatPressure(record)}</td>
-      <td>${formatDecimal(record.temperature)} C</td>
-      <td>${record.oxygen}%</td>
+      ${renderTableMetricCells(record)}
       <td><span class="status ${status.level}">${status.label}</span></td>
       <td class="actions-cell">
         <div class="row-actions">
-          <button type="button" data-action="edit" data-id="${record.id}">Editar</button>
-          <button type="button" data-action="delete" data-id="${record.id}">Borrar</button>
+          <button type="button" data-action="edit" data-id="${escapeHtml(record.id)}">Editar</button>
+          <button type="button" data-action="delete" data-id="${escapeHtml(record.id)}">Borrar</button>
         </div>
       </td>
     `;
@@ -187,13 +251,11 @@ function renderTable() {
         <span class="status ${status.level}">${status.label}</span>
       </div>
       <div class="record-card-grid">
-        <div><span>Presion</span><strong>${formatPressure(record)}</strong></div>
-        <div><span>Temp.</span><strong>${formatDecimal(record.temperature)} C</strong></div>
-        <div><span>Oxig.</span><strong>${record.oxygen}%</strong></div>
+        ${renderCardMetricCells(record)}
       </div>
       <div class="record-card-actions">
-        <button type="button" data-action="edit" data-id="${record.id}">Editar</button>
-        <button type="button" data-action="delete" data-id="${record.id}">Borrar</button>
+        <button type="button" data-action="edit" data-id="${escapeHtml(record.id)}">Editar</button>
+        <button type="button" data-action="delete" data-id="${escapeHtml(record.id)}">Borrar</button>
       </div>
     `;
     recordCards.appendChild(card);
@@ -209,16 +271,36 @@ function renderTable() {
   });
 }
 
+function renderTableMetricCells(record) {
+  return getActiveMetrics()
+    .map((metric) => `<td>${formatMetricValue(metric, record)}</td>`)
+    .join("");
+}
+
+function renderCardMetricCells(record) {
+  return getActiveMetrics()
+    .map(
+      (metric) => `
+        <div>
+          <span>${getMetricShortLabel(metric)}</span>
+          <strong>${formatMetricValue(metric, record)}</strong>
+        </div>
+      `,
+    )
+    .join("");
+}
+
 function editRecord(record) {
   recordIdInput.value = record.id;
   recordDateInput.value = toInputDateTime(new Date(record.date));
-  systolicInput.value = formatDecimal(record.systolic);
-  diastolicInput.value = formatDecimal(record.diastolic);
-  temperatureInput.value = formatDecimal(record.temperature);
-  oxygenInput.value = record.oxygen;
+  systolicInput.value = formatInputDecimal(record.systolic);
+  diastolicInput.value = formatInputDecimal(record.diastolic);
+  temperatureInput.value = formatInputDecimal(record.temperature);
+  oxygenInput.value = Number.isFinite(Number(record.oxygen)) ? record.oxygen : "";
   notesInput.value = record.notes || "";
   cancelEditBtn.hidden = false;
   formMode.textContent = "Editando un registro existente.";
+  applyMetricSettings();
   recordDateInput.focus();
 }
 
@@ -231,14 +313,25 @@ function deleteRecord(id) {
 }
 
 function getStatus(record) {
-  const hasAlert = record.oxygen < 92 || record.temperature >= 38 || record.systolic >= 18 || record.diastolic >= 12;
+  const hasActiveValue =
+    (isMetricActive("pressure") && isPressureValid(record)) ||
+    (isMetricActive("temperature") && isTemperatureValid(record)) ||
+    (isMetricActive("oxygen") && isOxygenValid(record));
+
+  if (!hasActiveValue) return { level: "neutral", label: "Sin datos" };
+
+  const hasAlert =
+    (isMetricActive("oxygen") && isOxygenValid(record) && record.oxygen < 92) ||
+    (isMetricActive("temperature") && isTemperatureValid(record) && record.temperature >= 38) ||
+    (isMetricActive("pressure") &&
+      isPressureValid(record) &&
+      (record.systolic >= 18 || record.diastolic >= 12));
   const hasWatch =
-    record.oxygen < 95 ||
-    record.temperature >= 37.5 ||
-    record.systolic >= 14 ||
-    record.diastolic >= 9 ||
-    record.systolic < 9 ||
-    record.diastolic < 6;
+    (isMetricActive("oxygen") && isOxygenValid(record) && record.oxygen < 95) ||
+    (isMetricActive("temperature") && isTemperatureValid(record) && record.temperature >= 37.5) ||
+    (isMetricActive("pressure") &&
+      isPressureValid(record) &&
+      (record.systolic >= 14 || record.diastolic >= 9 || record.systolic < 9 || record.diastolic < 6));
 
   if (hasAlert) return { level: "alert", label: "Alerta" };
   if (hasWatch) return { level: "watch", label: "Revisar" };
@@ -247,16 +340,31 @@ function getStatus(record) {
 
 function renderCharts() {
   const ascending = getChartRecords();
-  renderLineChart(document.querySelector("#pressureChart"), ascending, [
-    { key: "systolic", label: "Sistolica", color: "#0b7a75", min: 8, max: 18 },
-    { key: "diastolic", label: "Diastolica", color: "#b65f00", min: 8, max: 18 },
-  ]);
-  renderLineChart(document.querySelector("#temperatureChart"), ascending, [
-    { key: "temperature", label: "Temperatura", color: "#b3261e", min: 34, max: 40 },
-  ]);
-  renderLineChart(document.querySelector("#oxygenChart"), ascending, [
-    { key: "oxygen", label: "Oxigenacion", color: "#26734d", min: 95, max: 100 },
-  ]);
+
+  if (isMetricActive("pressure")) {
+    renderLineChart(document.querySelector("#pressureChart"), ascending, [
+      { key: "systolic", label: "Sistolica", color: "#0b7a75", min: 8, max: 18 },
+      { key: "diastolic", label: "Diastolica", color: "#b65f00", min: 8, max: 18 },
+    ]);
+  } else {
+    document.querySelector("#pressureChart").innerHTML = "";
+  }
+
+  if (isMetricActive("temperature")) {
+    renderLineChart(document.querySelector("#temperatureChart"), ascending, [
+      { key: "temperature", label: "Temperatura", color: "#b3261e", min: 34, max: 40 },
+    ]);
+  } else {
+    document.querySelector("#temperatureChart").innerHTML = "";
+  }
+
+  if (isMetricActive("oxygen")) {
+    renderLineChart(document.querySelector("#oxygenChart"), ascending, [
+      { key: "oxygen", label: "Oxigenacion", color: "#26734d", min: 95, max: 100 },
+    ]);
+  } else {
+    document.querySelector("#oxygenChart").innerHTML = "";
+  }
 }
 
 function getChartRecords() {
@@ -356,21 +464,62 @@ function formatAxisLabel(value) {
 }
 
 function exportJson() {
-  downloadFile(`registro-salud-${todayStamp()}.json`, "application/json", JSON.stringify(sortRecords(records), null, 2));
+  downloadFile(
+    `registro-salud-${todayStamp()}.json`,
+    "application/json",
+    JSON.stringify(sortRecords(records).map(getExportRecord), null, 2),
+  );
 }
 
 function exportCsv() {
-  const headers = ["fecha", "sistolica", "diastolica", "temperatura", "oxigenacion", "notas"];
+  const headers = ["fecha", ...getCsvMetricHeaders(), "notas"];
   const rows = sortRecords(records).map((record) => [
     record.date,
-    formatExportDecimal(record.systolic),
-    formatExportDecimal(record.diastolic),
-    formatExportDecimal(record.temperature),
-    record.oxygen,
+    ...getCsvMetricValues(record),
     record.notes || "",
   ]);
   const csv = [headers, ...rows].map((row) => row.map(csvEscape).join(",")).join("\n");
   downloadFile(`registro-salud-${todayStamp()}.csv`, "text/csv", csv);
+}
+
+function getExportRecord(record) {
+  const exported = {
+    id: record.id,
+    date: record.date,
+  };
+
+  if (isMetricActive("pressure")) {
+    exported.systolic = isPressureValid(record) ? record.systolic : null;
+    exported.diastolic = isPressureValid(record) ? record.diastolic : null;
+  }
+  if (isMetricActive("temperature")) exported.temperature = isTemperatureValid(record) ? record.temperature : null;
+  if (isMetricActive("oxygen")) exported.oxygen = isOxygenValid(record) ? record.oxygen : null;
+  exported.notes = record.notes || "";
+
+  return exported;
+}
+
+function getCsvMetricHeaders() {
+  return getActiveMetrics().flatMap((metric) => {
+    if (metric === "pressure") return ["sistolica", "diastolica"];
+    if (metric === "temperature") return ["temperatura"];
+    return ["oxigenacion"];
+  });
+}
+
+function getCsvMetricValues(record) {
+  return getActiveMetrics().flatMap((metric) => {
+    if (metric === "pressure") {
+      return [
+        isPressureValid(record) ? formatExportDecimal(record.systolic) : "",
+        isPressureValid(record) ? formatExportDecimal(record.diastolic) : "",
+      ];
+    }
+    if (metric === "temperature") {
+      return [isTemperatureValid(record) ? formatExportDecimal(record.temperature) : ""];
+    }
+    return [isOxygenValid(record) ? record.oxygen : ""];
+  });
 }
 
 function downloadFile(filename, type, content) {
@@ -390,6 +539,79 @@ function csvEscape(value) {
   return /[",\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
 }
 
+function applyMetricSettings() {
+  metricToggles.forEach((input) => {
+    input.checked = isMetricActive(input.dataset.metricToggle);
+  });
+
+  document.querySelectorAll("[data-metric-field]").forEach((element) => {
+    element.hidden = !isMetricActive(element.dataset.metricField);
+  });
+  document.querySelectorAll("[data-summary-metric]").forEach((element) => {
+    element.hidden = !isMetricActive(element.dataset.summaryMetric);
+  });
+  document.querySelectorAll("[data-chart-metric]").forEach((element) => {
+    element.hidden = !isMetricActive(element.dataset.chartMetric);
+  });
+  document.querySelectorAll("[data-table-metric]").forEach((element) => {
+    element.hidden = !isMetricActive(element.dataset.tableMetric);
+  });
+
+  const pressureActive = isMetricActive("pressure");
+  const temperatureActive = isMetricActive("temperature");
+  const oxygenActive = isMetricActive("oxygen");
+
+  systolicInput.required = pressureActive;
+  systolicInput.disabled = !pressureActive;
+  diastolicInput.required = pressureActive;
+  diastolicInput.disabled = !pressureActive;
+  temperatureInput.required = temperatureActive;
+  temperatureInput.disabled = !temperatureActive;
+  oxygenInput.required = oxygenActive;
+  oxygenInput.disabled = !oxygenActive;
+}
+
+function getActiveMetrics() {
+  return METRIC_ORDER.filter(isMetricActive);
+}
+
+function isMetricActive(metric) {
+  return settings.metrics[metric] !== false;
+}
+
+function hasActiveMetric(metrics) {
+  return METRIC_ORDER.some((metric) => metrics[metric] !== false);
+}
+
+function getMetricShortLabel(metric) {
+  if (metric === "pressure") return "Presion";
+  if (metric === "temperature") return "Temp.";
+  return "Oxig.";
+}
+
+function formatMetricValue(metric, record) {
+  if (metric === "pressure") return formatPressure(record);
+  if (metric === "temperature") return isTemperatureValid(record) ? `${formatDecimal(record.temperature)} C` : "Sin datos";
+  return isOxygenValid(record) ? `${record.oxygen}%` : "Sin datos";
+}
+
+function isPressureValid(record) {
+  return isInRange(record.systolic, 4, 26) && isInRange(record.diastolic, 3, 18);
+}
+
+function isTemperatureValid(record) {
+  return isInRange(record.temperature, 30, 45);
+}
+
+function isOxygenValid(record) {
+  return isInRange(record.oxygen, 50, 100);
+}
+
+function isInRange(value, min, max) {
+  const number = Number(value);
+  return Number.isFinite(number) && number >= min && number <= max;
+}
+
 function toInputDateTime(date) {
   const localDate = new Date(date.getTime() - date.getTimezoneOffset() * 60_000);
   return localDate.toISOString().slice(0, 16);
@@ -400,7 +622,8 @@ function todayStamp() {
 }
 
 function parseDecimal(value) {
-  return Number(String(value).trim().replace(",", "."));
+  const text = String(value).trim().replace(",", ".");
+  return text ? Number(text) : NaN;
 }
 
 function normalizeDecimalInput(input) {
@@ -418,12 +641,20 @@ function formatDecimal(value) {
   return Number(value).toFixed(1);
 }
 
+function formatInputDecimal(value) {
+  return Number.isFinite(Number(value)) ? formatDecimal(value) : "";
+}
+
 function formatExportDecimal(value) {
-  return Number(value).toFixed(1);
+  return Number.isFinite(Number(value)) ? Number(value).toFixed(1) : "";
 }
 
 function formatPressure(record) {
-  return `${formatDecimal(record.systolic)}/${formatDecimal(record.diastolic)}`;
+  return isPressureValid(record) ? `${formatDecimal(record.systolic)}/${formatDecimal(record.diastolic)}` : "Sin datos";
+}
+
+function createId() {
+  return globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
 function escapeHtml(value) {

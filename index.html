@@ -27,6 +27,38 @@
     </header>
 
     <main class="app-shell">
+      <section class="settings-section" aria-labelledby="settingsTitle">
+        <div class="section-heading">
+          <div>
+            <h2 id="settingsTitle">Datos activos</h2>
+            <p id="settingsHelp">Elige que mediciones pedira y graficara la aplicacion.</p>
+          </div>
+        </div>
+        <div class="metric-settings" role="group" aria-describedby="settingsHelp">
+          <label class="checkbox-card">
+            <input type="checkbox" data-metric-toggle="pressure" checked />
+            <span>
+              <strong>Presion arterial</strong>
+              <small>Sistolica y diastolica</small>
+            </span>
+          </label>
+          <label class="checkbox-card">
+            <input type="checkbox" data-metric-toggle="temperature" checked />
+            <span>
+              <strong>Temperatura</strong>
+              <small>Temperatura corporal</small>
+            </span>
+          </label>
+          <label class="checkbox-card">
+            <input type="checkbox" data-metric-toggle="oxygen" checked />
+            <span>
+              <strong>Oxigenacion</strong>
+              <small>Saturacion de oxigeno</small>
+            </span>
+          </label>
+        </div>
+      </section>
+
       <section class="entry-section" aria-labelledby="entryTitle">
         <div class="section-heading">
           <h2 id="entryTitle">Nuevo registro</h2>
@@ -42,7 +74,7 @@
               <button class="ghost-button now-button" id="nowBtn" type="button">Ahora</button>
             </div>
           </div>
-          <div class="field-group">
+          <div class="field-group" data-metric-field="pressure">
             <div class="field">
               <label for="systolic">Sistolica</label>
               <input id="systolic" name="systolic" type="text" inputmode="decimal" placeholder="12.8" required />
@@ -53,11 +85,11 @@
             </div>
           </div>
           <div class="field-group">
-            <div class="field">
+            <div class="field" data-metric-field="temperature">
               <label for="temperature">Temperatura C</label>
               <input id="temperature" name="temperature" type="text" inputmode="decimal" placeholder="37.5" required />
             </div>
-            <div class="field">
+            <div class="field" data-metric-field="oxygen">
               <label for="oxygen">Oxigenacion %</label>
               <input id="oxygen" name="oxygen" type="number" inputmode="numeric" min="50" max="100" required />
             </div>
@@ -74,15 +106,15 @@
       </section>
 
       <section class="summary-section" aria-label="Resumen">
-        <article class="metric-tile">
+        <article class="metric-tile" data-summary-metric="pressure">
           <span>Ultima presion</span>
           <strong id="latestPressure">Sin datos</strong>
         </article>
-        <article class="metric-tile">
+        <article class="metric-tile" data-summary-metric="temperature">
           <span>Temperatura</span>
           <strong id="latestTemperature">Sin datos</strong>
         </article>
-        <article class="metric-tile">
+        <article class="metric-tile" data-summary-metric="oxygen">
           <span>Oxigenacion</span>
           <strong id="latestOxygen">Sin datos</strong>
         </article>
@@ -102,15 +134,15 @@
           </div>
         </div>
         <div class="chart-grid">
-          <div class="chart-panel">
+          <div class="chart-panel" data-chart-metric="pressure">
             <h3>Presion arterial</h3>
             <div id="pressureChart" class="chart-canvas" role="img" aria-label="Grafico de presion arterial"></div>
           </div>
-          <div class="chart-panel">
+          <div class="chart-panel" data-chart-metric="temperature">
             <h3>Temperatura</h3>
             <div id="temperatureChart" class="chart-canvas" role="img" aria-label="Grafico de temperatura"></div>
           </div>
-          <div class="chart-panel">
+          <div class="chart-panel" data-chart-metric="oxygen">
             <h3>Oxigenacion</h3>
             <div id="oxygenChart" class="chart-canvas" role="img" aria-label="Grafico de oxigenacion"></div>
           </div>
@@ -130,9 +162,9 @@
             <thead>
               <tr>
                 <th>Fecha</th>
-                <th>Presion</th>
-                <th>Temp.</th>
-                <th>Oxig.</th>
+                <th data-table-metric="pressure">Presion</th>
+                <th data-table-metric="temperature">Temp.</th>
+                <th data-table-metric="oxygen">Oxig.</th>
                 <th>Estado</th>
                 <th class="actions-cell">Acciones</th>
               </tr>
