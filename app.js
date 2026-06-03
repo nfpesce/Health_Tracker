@@ -588,16 +588,16 @@ function applyMetricSettings() {
   });
 
   document.querySelectorAll("[data-metric-field]").forEach((element) => {
-    element.hidden = !isMetricActive(element.dataset.metricField);
+    setElementVisible(element, isMetricActive(element.dataset.metricField));
   });
   document.querySelectorAll("[data-summary-metric]").forEach((element) => {
-    element.hidden = !isMetricActive(element.dataset.summaryMetric);
+    setElementVisible(element, isMetricActive(element.dataset.summaryMetric));
   });
   document.querySelectorAll("[data-chart-metric]").forEach((element) => {
-    element.hidden = !isMetricActive(element.dataset.chartMetric);
+    setElementVisible(element, isMetricActive(element.dataset.chartMetric));
   });
   document.querySelectorAll("[data-table-metric]").forEach((element) => {
-    element.hidden = !isMetricActive(element.dataset.tableMetric);
+    setElementVisible(element, isMetricActive(element.dataset.tableMetric));
   });
 
   const pressureActive = isMetricActive("pressure");
@@ -612,6 +612,11 @@ function applyMetricSettings() {
   temperatureInput.disabled = !temperatureActive;
   oxygenInput.required = oxygenActive;
   oxygenInput.disabled = !oxygenActive;
+}
+
+function setElementVisible(element, isVisible) {
+  element.hidden = !isVisible;
+  element.style.display = isVisible ? "" : "none";
 }
 
 function getActiveMetrics() {
