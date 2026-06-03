@@ -88,13 +88,15 @@ function handleMetricSettingChange(input) {
 function handleSubmit(event) {
   event.preventDefault();
   const existingRecord = records.find((item) => item.id === recordIdInput.value);
+  const recordDate = new Date(recordDateInput.value);
+  const preservedValues = getPreservedInactiveMetricValues(existingRecord, recordDate);
   const record = {
     id: recordIdInput.value || createId(),
-    date: new Date(recordDateInput.value).toISOString(),
-    systolic: isMetricActive("pressure") ? parseDecimal(systolicInput.value) : existingRecord?.systolic ?? null,
-    diastolic: isMetricActive("pressure") ? parseDecimal(diastolicInput.value) : existingRecord?.diastolic ?? null,
-    temperature: isMetricActive("temperature") ? parseDecimal(temperatureInput.value) : existingRecord?.temperature ?? null,
-    oxygen: isMetricActive("oxygen") ? Number(oxygenInput.value) : existingRecord?.oxygen ?? null,
+    date: Number.isFinite(recordDate.getTime()) ? recordDate.toISOString() : "",
+    systolic: isMetricActive("pressure") ? parseDecimal(systolicInput.value) : preservedValues.systolic,
+    diastolic: isMetricActive("pressure") ? parseDecimal(diastolicInput.value) : preservedValues.diastolic,
+    temperature: isMetricActive("temperature") ? parseDecimal(temperatureInput.value) : preservedValues.temperature,
+    oxygen: isMetricActive("oxygen") ? Number(oxygenInput.value) : preservedValues.oxygen,
     notes: notesInput.value.trim(),
   };
 
@@ -124,6 +126,47 @@ function isStoredRecordValid(record) {
     Number.isFinite(new Date(record.date).getTime()) &&
     (isPressureValid(record) || isTemperatureValid(record) || isOxygenValid(record))
   );
+}
+
+function getPreservedInactiveMetricValues(existingRecord, recordDate) {
+  const pressureSource =
+    existingRecord && isPressureValid(existingRecord)
+      ? existingRecord
+      : getLatestRecordWithMetric("pressure", recordDate, existingRecord?.id);
+  const temperatureSource =
+    existingRecord && isTemperatureValid(existingRecord)
+      ? existingRecord
+      : getLatestRecordWithMetric("temperature", recordDate, existingRecord?.id);
+  const oxygenSource =
+    existingRecord && isOxygenValid(existingRecord)
+      ? existingRecord
+      : getLatestRecordWithMetric("oxygen", recordDate, existingRecord?.id);
+
+  return {
+    systolic: pressureSource?.systolic ?? null,
+    diastolic: pressureSource?.diastolic ?? null,
+    temperature: temperatureSource?.temperature ?? null,
+    oxygen: oxygenSource?.oxygen ?? null,
+  };
+}
+
+function getLatestRecordWithMetric(metric, recordDate, excludedId) {
+  const validators = {
+    pressure: isPressureValid,
+    temperature: isTemperatureValid,
+    oxygen: isOxygenValid,
+  };
+  const isValidMetricRecord = validators[metric];
+  const validRecords = sortRecords(records).filter(
+    (record) => record.id !== excludedId && isValidMetricRecord(record),
+  );
+
+  if (validRecords.length === 0) return null;
+
+  const referenceTime = recordDate.getTime();
+  if (!Number.isFinite(referenceTime)) return validRecords[0];
+
+  return validRecords.find((record) => new Date(record.date).getTime() <= referenceTime) || validRecords[0];
 }
 
 function loadSettings() {

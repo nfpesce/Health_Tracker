@@ -9,6 +9,8 @@ en GitHub Pages.
 - Guarda los datos en el navegador con `localStorage`.
 - Permite elegir que mediciones se piden y grafican: presion, temperatura y
   oxigenacion. Esa configuracion tambien queda guardada en el navegador.
+- Al desactivar una medicion, los nuevos registros conservan el ultimo valor
+  historico disponible para no descartar esos datos.
 - Permite crear, editar y borrar registros.
 - Acepta presion y temperatura con punto o coma decimal, por ejemplo `12.8`,
   `12,8`, `9.3`, `9,3`, `37.5` o `37,5`.
