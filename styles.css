@@ -131,7 +131,7 @@ h3 {
   display: grid;
   grid-template-columns: minmax(280px, 400px) minmax(0, 1fr);
   gap: 18px;
-  width: min(1280px, 100%);
+  width: min(1600px, 100%);
   margin: 0 auto;
   padding: 18px clamp(16px, 4vw, 48px) 48px;
 }

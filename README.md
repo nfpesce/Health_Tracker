@@ -17,6 +17,7 @@ en GitHub Pages.
 - Normaliza los valores decimales a un formato unico con punto y un decimal.
 - Muestra resumen del ultimo registro.
 - Grafica tendencias de presion, temperatura y oxigenacion.
+- Distribuye hasta seis referencias cortas de fecha a lo largo del eje temporal.
 - Muestra la escala de presion en intervalos de una unidad.
 - Aprovecha el ancho disponible para las graficas al girar un telefono.
 - Exporta respaldos en `CSV` y `JSON`.

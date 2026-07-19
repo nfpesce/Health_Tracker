@@ -12,6 +12,10 @@ const DATE_FORMAT = new Intl.DateTimeFormat("es", {
   dateStyle: "medium",
   timeStyle: "short",
 });
+const SHORT_DATE_FORMAT = new Intl.DateTimeFormat("es", {
+  day: "numeric",
+  month: "numeric",
+});
 const CHART_AXIS_FONT =
   "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif";
 
@@ -438,10 +442,14 @@ function renderLineChart(container, data, series) {
   const plotHeight = height - pad.top - pad.bottom;
   const tickStep = getSeriesTickStep(drawableSeries);
   const { min, max } = getAxisRange(drawableSeries, tickStep);
-  const xStep = data.length > 1 ? plotWidth / (data.length - 1) : 0;
+  const dataTimes = data.map((record) => new Date(record.date).getTime());
+  const firstTime = dataTimes[0];
+  const lastTime = dataTimes[dataTimes.length - 1];
+  const timeSpan = lastTime - firstTime;
 
   const yFor = (value) => pad.top + ((max - value) / (max - min)) * plotHeight;
-  const xFor = (index) => pad.left + index * xStep;
+  const xFor = (index) =>
+    timeSpan === 0 ? pad.left + plotWidth / 2 : pad.left + ((dataTimes[index] - firstTime) / timeSpan) * plotWidth;
   const gridValues = getAxisGridValues(min, max, tickStep);
   const grid = gridValues
     .map((value) => {
@@ -449,6 +457,18 @@ function renderLineChart(container, data, series) {
       const label = formatAxisLabel(value);
       return `<line x1="${pad.left}" y1="${y}" x2="${width - pad.right}" y2="${y}" stroke="#d8e2de" />
         <text x="10" y="${y + 5}" fill="#46524d" font-size="14" font-weight="700" font-family="${CHART_AXIS_FONT}">${label}</text>`;
+    })
+    .join("");
+
+  const timeTicks = getTimeAxisTicks(firstTime, lastTime);
+  const timeAxis = timeTicks
+    .map(({ time, ratio }) => {
+      const x = pad.left + ratio * plotWidth;
+      const anchor = ratio === 0 ? "start" : ratio === 1 ? "end" : "middle";
+      const label = SHORT_DATE_FORMAT.format(new Date(time));
+      return `<line x1="${x}" y1="${pad.top}" x2="${x}" y2="${height - pad.bottom}" stroke="#edf2f0" />
+        <line x1="${x}" y1="${height - pad.bottom}" x2="${x}" y2="${height - pad.bottom + 5}" stroke="#9aa8a2" />
+        <text x="${x}" y="${height - 10}" text-anchor="${anchor}" fill="#46524d" font-size="13" font-weight="700" font-family="${CHART_AXIS_FONT}">${label}</text>`;
     })
     .join("");
 
@@ -467,20 +487,33 @@ function renderLineChart(container, data, series) {
     })
     .join("");
 
-  const firstDate = DATE_FORMAT.format(new Date(data[0].date));
-  const lastDate = DATE_FORMAT.format(new Date(data[data.length - 1].date));
   const legend = drawableSeries.map((item) => `<span style="color:${item.color}">${item.label}</span>`).join("");
 
   container.innerHTML = `
     <svg viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" aria-hidden="true">
       ${grid}
+      ${timeAxis}
       <line x1="${pad.left}" y1="${height - pad.bottom}" x2="${width - pad.right}" y2="${height - pad.bottom}" stroke="#9aa8a2" />
       ${paths}
-      <text x="${pad.left}" y="${height - 10}" fill="#46524d" font-size="13" font-weight="700" font-family="${CHART_AXIS_FONT}">${escapeHtml(firstDate)}</text>
-      <text x="${width - pad.right}" y="${height - 10}" text-anchor="end" fill="#46524d" font-size="13" font-weight="700" font-family="${CHART_AXIS_FONT}">${escapeHtml(lastDate)}</text>
     </svg>
     <div class="legend">${legend}</div>
   `;
+}
+
+function getTimeAxisTicks(firstTime, lastTime, maxTicks = 6) {
+  if (firstTime === lastTime) return [{ time: firstTime, ratio: 0.5 }];
+
+  const firstDate = new Date(firstTime);
+  const lastDate = new Date(lastTime);
+  const firstDay = new Date(firstDate.getFullYear(), firstDate.getMonth(), firstDate.getDate()).getTime();
+  const lastDay = new Date(lastDate.getFullYear(), lastDate.getMonth(), lastDate.getDate()).getTime();
+  const dayCount = Math.round((lastDay - firstDay) / (24 * 60 * 60 * 1000)) + 1;
+  const tickCount = Math.min(maxTicks, Math.max(2, dayCount));
+
+  return Array.from({ length: tickCount }, (_, index) => {
+    const ratio = index / (tickCount - 1);
+    return { time: firstTime + (lastTime - firstTime) * ratio, ratio };
+  });
 }
 
 function getSeriesPoints(data, key) {
