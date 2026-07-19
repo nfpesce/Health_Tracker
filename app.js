@@ -386,8 +386,8 @@ function renderCharts() {
 
   if (isMetricActive("pressure")) {
     renderLineChart(document.querySelector("#pressureChart"), ascending, [
-      { key: "systolic", label: "Sistolica", color: "#0b7a75", min: 8, max: 18 },
-      { key: "diastolic", label: "Diastolica", color: "#b65f00", min: 8, max: 18 },
+      { key: "systolic", label: "Sistolica", color: "#0b7a75", min: 8, max: 18, tickStep: 1 },
+      { key: "diastolic", label: "Diastolica", color: "#b65f00", min: 8, max: 18, tickStep: 1 },
     ]);
   } else {
     document.querySelector("#pressureChart").innerHTML = "";
@@ -436,15 +436,17 @@ function renderLineChart(container, data, series) {
   const pad = { top: 18, right: 22, bottom: 38, left: 52 };
   const plotWidth = width - pad.left - pad.right;
   const plotHeight = height - pad.top - pad.bottom;
-  const { min, max } = getAxisRange(drawableSeries);
+  const tickStep = getSeriesTickStep(drawableSeries);
+  const { min, max } = getAxisRange(drawableSeries, tickStep);
   const xStep = data.length > 1 ? plotWidth / (data.length - 1) : 0;
 
   const yFor = (value) => pad.top + ((max - value) / (max - min)) * plotHeight;
   const xFor = (index) => pad.left + index * xStep;
-  const grid = [0, 0.25, 0.5, 0.75, 1]
-    .map((ratio) => {
-      const y = pad.top + ratio * plotHeight;
-      const label = formatAxisLabel(max - ratio * (max - min));
+  const gridValues = getAxisGridValues(min, max, tickStep);
+  const grid = gridValues
+    .map((value) => {
+      const y = yFor(value);
+      const label = formatAxisLabel(value);
       return `<line x1="${pad.left}" y1="${y}" x2="${width - pad.right}" y2="${y}" stroke="#d8e2de" />
         <text x="10" y="${y + 5}" fill="#46524d" font-size="14" font-weight="700" font-family="${CHART_AXIS_FONT}">${label}</text>`;
     })
@@ -487,7 +489,12 @@ function getSeriesPoints(data, key) {
     .filter((point) => Number.isFinite(point.value));
 }
 
-function getAxisRange(series) {
+function getSeriesTickStep(series) {
+  const steps = series.map((item) => Number(item.tickStep)).filter((step) => step > 0);
+  return steps.length === series.length ? Math.min(...steps) : null;
+}
+
+function getAxisRange(series, tickStep = null) {
   const allValues = series.flatMap((item) => item.points.map((point) => point.value));
   const configuredMin = Math.min(...series.map((item) => item.min));
   const configuredMax = Math.max(...series.map((item) => item.max));
@@ -496,10 +503,26 @@ function getAxisRange(series) {
   const span = configuredMax - configuredMin || 1;
   const padding = span * 0.06;
 
-  return {
+  const range = {
     min: valueMin < configuredMin ? Math.floor((valueMin - padding) * 10) / 10 : configuredMin,
     max: valueMax > configuredMax ? Math.ceil((valueMax + padding) * 10) / 10 : configuredMax,
   };
+
+  if (!tickStep) return range;
+
+  return {
+    min: Math.floor(range.min / tickStep) * tickStep,
+    max: Math.ceil(range.max / tickStep) * tickStep,
+  };
+}
+
+function getAxisGridValues(min, max, tickStep) {
+  if (!tickStep) {
+    return [max, max - (max - min) * 0.25, max - (max - min) * 0.5, max - (max - min) * 0.75, min];
+  }
+
+  const count = Math.round((max - min) / tickStep);
+  return Array.from({ length: count + 1 }, (_, index) => max - index * tickStep);
 }
 
 function formatAxisLabel(value) {

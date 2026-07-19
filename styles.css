@@ -593,3 +593,24 @@ th {
     min-height: 230px;
   }
 }
+
+@media (orientation: landscape) and (max-height: 600px) {
+  .app-shell {
+    width: 100%;
+    padding-right: max(12px, env(safe-area-inset-right));
+    padding-left: max(12px, env(safe-area-inset-left));
+  }
+
+  .chart-section {
+    grid-column: 1 / -1;
+  }
+
+  .chart-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .chart-canvas {
+    height: clamp(260px, 68dvh, 420px);
+    min-height: 260px;
+  }
+}
